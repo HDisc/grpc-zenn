@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"time"
 
 	hellopb "mygrpc/pkg/grpc"
 
@@ -14,19 +15,33 @@ import (
 	"google.golang.org/grpc/reflection"
 )
 
-type mySever struct {
+type myServer struct {
 	hellopb.UnimplementedGreetingServiceServer
 }
 
-func (s *mySever) Hello(ctx context.Context, req *hellopb.HelloRequest) (*hellopb.HelloResponse, error) {
+func NewMyServer() *myServer {
+	return &myServer{}
+}
+
+func (s *myServer) Hello(ctx context.Context, req *hellopb.HelloRequest) (*hellopb.HelloResponse, error) {
 	return &hellopb.HelloResponse{
 		Message: fmt.Sprintf("Hello, %s!", req.GetName()),
 	}, nil
 }
 
-func NewMyServer() *mySever {
-	return &mySever{}
+func (s *myServer) HelloServerStream(req *hellopb.HelloRequest, stream hellopb.GreetingService_HelloServerStreamServer) error {
+	resCount := 5
+	for i := 0; i < resCount; i++ {
+		if err := stream.Send(&hellopb.HelloResponse{
+			Message: fmt.Sprintf("[%d] Hello, %s!", i, req.GetName()),
+		}); err != nil {
+			return err
+		}
+		time.Sleep(time.Second * 1)
+	}
+	return nil
 }
+
 func main() {
 	port := 8080
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
